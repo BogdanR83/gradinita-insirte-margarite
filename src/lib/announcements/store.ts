@@ -8,39 +8,64 @@ const DATA_FILE = path.join(DATA_DIR, "announcements.json");
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const BLOB_META_PATHNAME = "announcements/meta.json";
 
+const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: "welcome-001",
+    title: "Bine ați venit pe noul site!",
+    body: "Aici vom publica anunțuri pentru părinți: înscrieri, program special, activități și documente PDF.",
+    createdAt: "2026-08-11T10:00:00.000Z",
+  },
+];
+
 function useBlob() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-async function ensureLocalFiles() {
-  await mkdir(DATA_DIR, { recursive: true });
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  try {
-    await readFile(DATA_FILE, "utf8");
-  } catch {
-    await writeFile(DATA_FILE, "[]\n", "utf8");
+function isVercel() {
+  return Boolean(process.env.VERCEL);
+}
+
+function assertWritable() {
+  if (isVercel() && !useBlob()) {
+    throw new Error(
+      "Pe Vercel, anunțurile necesită Vercel Blob. Adaugă BLOB_READ_WRITE_TOKEN în Environment Variables.",
+    );
   }
 }
 
+async function ensureLocalWritable() {
+  assertWritable();
+  await mkdir(DATA_DIR, { recursive: true });
+  await mkdir(UPLOAD_DIR, { recursive: true });
+}
+
 async function readLocal(): Promise<Announcement[]> {
-  await ensureLocalFiles();
-  const raw = await readFile(DATA_FILE, "utf8");
-  return JSON.parse(raw) as Announcement[];
+  try {
+    const raw = await readFile(DATA_FILE, "utf8");
+    return JSON.parse(raw) as Announcement[];
+  } catch {
+    return DEFAULT_ANNOUNCEMENTS;
+  }
 }
 
 async function writeLocal(items: Announcement[]) {
-  await ensureLocalFiles();
+  await ensureLocalWritable();
   await writeFile(DATA_FILE, `${JSON.stringify(items, null, 2)}\n`, "utf8");
 }
 
 async function readBlobMeta(): Promise<Announcement[]> {
-  const result = await list({ prefix: "announcements/", limit: 1000 });
-  const meta = result.blobs.find((blob) => blob.pathname === BLOB_META_PATHNAME);
-  if (!meta) return [];
+  try {
+    const result = await list({ prefix: "announcements/", limit: 1000 });
+    const meta = result.blobs.find((blob) => blob.pathname === BLOB_META_PATHNAME);
+    if (!meta) return DEFAULT_ANNOUNCEMENTS;
 
-  const response = await fetch(meta.url, { cache: "no-store" });
-  if (!response.ok) return [];
-  return (await response.json()) as Announcement[];
+    const response = await fetch(meta.url, { cache: "no-store" });
+    if (!response.ok) return DEFAULT_ANNOUNCEMENTS;
+    const items = (await response.json()) as Announcement[];
+    return items.length > 0 ? items : DEFAULT_ANNOUNCEMENTS;
+  } catch {
+    return DEFAULT_ANNOUNCEMENTS;
+  }
 }
 
 async function writeBlobMeta(items: Announcement[]) {
@@ -53,16 +78,22 @@ async function writeBlobMeta(items: Announcement[]) {
 }
 
 export async function listAnnouncements(): Promise<Announcement[]> {
-  const items = useBlob() ? await readBlobMeta() : await readLocal();
-  return [...items].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  try {
+    const items = useBlob() ? await readBlobMeta() : await readLocal();
+    return [...items].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  } catch {
+    return DEFAULT_ANNOUNCEMENTS;
+  }
 }
 
 export async function createAnnouncement(
   input: AnnouncementInput,
   pdf?: { buffer: Buffer; filename: string; contentType: string },
 ): Promise<Announcement> {
+  assertWritable();
+
   const title = input.title.trim();
   const body = input.body?.trim();
 
@@ -86,7 +117,7 @@ export async function createAnnouncement(
       pdfUrl = blob.url;
       pdfName = pdf.filename;
     } else {
-      await ensureLocalFiles();
+      await ensureLocalWritable();
       const stored = `${Date.now()}-${safeName}`;
       await writeFile(path.join(UPLOAD_DIR, stored), pdf.buffer);
       pdfUrl = `/uploads/${stored}`;
@@ -104,18 +135,20 @@ export async function createAnnouncement(
   };
 
   const items = await listAnnouncements();
-  items.unshift(announcement);
+  const next = [announcement, ...items.filter((item) => item.id !== "welcome-001")];
 
   if (useBlob()) {
-    await writeBlobMeta(items);
+    await writeBlobMeta(next);
   } else {
-    await writeLocal(items);
+    await writeLocal(next);
   }
 
   return announcement;
 }
 
 export async function deleteAnnouncement(id: string) {
+  assertWritable();
+
   const items = await listAnnouncements();
   const target = items.find((item) => item.id === id);
   if (!target) {
