@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+:root {
+  --sky: #4eb8e8;
+  --sky-deep: #2a9fd0;
+  --leaf: #3dbe7a;
+  --leaf-deep: #2a9a5f;
+  --sun: #ffc94a;
+  --sun-deep: #f0b429;
+  --coral: #ff7a6b;
+  --ink: #1f3a4d;
+  --mist: #e8f7ff;
+  --paper: #fffdf8;
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sky: var(--sky);
+  --color-sky-deep: var(--sky-deep);
+  --color-leaf: var(--leaf);
+  --color-leaf-deep: var(--leaf-deep);
+  --color-sun: var(--sun);
+  --color-sun-deep: var(--sun-deep);
+  --color-coral: var(--coral);
+  --color-ink: var(--ink);
+  --color-mist: var(--mist);
+  --color-paper: var(--paper);
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-fredoka);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--sun) 55%, white);
+  color: var(--ink);
+}
+
+.font-display {
+  font-family: var(--font-fredoka), system-ui, sans-serif;
+}
+
+.sky-wash {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(78, 184, 232, 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 201, 74, 0.28), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(61, 190, 122, 0.18), transparent 55%),
+    linear-gradient(180deg, #dff4ff 0%, var(--paper) 55%, #fff8e8 100%);
+}
+
+.bead {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  box-shadow:
+    inset -3px -4px 8px rgba(0, 0, 0, 0.12),
+    inset 3px 3px 6px rgba(255, 255, 255, 0.45);
+  animation: float-bead ease-in-out infinite;
+}
+
+@keyframes float-bead {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(8deg);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.8s ease-out both;
+}
+
+.animate-rise-delay-1 {
+  animation: rise-in 0.8s ease-out 0.12s both;
+}
+
+.animate-rise-delay-2 {
+  animation: rise-in 0.8s ease-out 0.24s both;
+}
+
+.animate-rise-delay-3 {
+  animation: rise-in 0.8s ease-out 0.36s both;
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 3.2s ease-in-out infinite;
+}
+
+.hero-scrim {
+  background: linear-gradient(
+    105deg,
+    rgba(31, 58, 77, 0.72) 0%,
+    rgba(31, 58, 77, 0.45) 42%,
+    rgba(31, 58, 77, 0.15) 70%,
+    transparent 100%
+  );
+}
+
+@media (max-width: 768px) {
+  .hero-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(31, 58, 77, 0.55) 0%,
+      rgba(31, 58, 77, 0.72) 55%,
+      rgba(31, 58, 77, 0.82) 100%
+    );
+  }
+}
+
+.map-frame {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+}
