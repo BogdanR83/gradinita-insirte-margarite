@@ -1,13 +1,6 @@
 import Link from "next/link";
 import type { Announcement } from "@/lib/announcements/types";
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ro-RO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(value));
-}
+import { formatAnnouncementDate } from "@/lib/announcements/limits";
 
 type AnnouncementCardProps = {
   item: Announcement;
@@ -17,7 +10,7 @@ export function AnnouncementCard({ item }: AnnouncementCardProps) {
   return (
     <article className="rounded-[1.75rem] border border-ink/8 bg-white/90 p-6 shadow-[0_18px_40px_-30px_rgba(31,58,77,0.45)]">
       <p className="text-sm font-semibold uppercase tracking-wide text-sky-deep">
-        {formatDate(item.createdAt)}
+        {formatAnnouncementDate(item.createdAt)}
       </p>
       <h3 className="mt-2 font-display text-2xl text-ink">{item.title}</h3>
       {item.body ? (

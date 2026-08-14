@@ -23,7 +23,8 @@ export function Footer() {
           </p>
         </div>
         <p className="text-sm text-white/45">
-          © {new Date().getFullYear()} {kindergarten.name}
+          © {new Date().toLocaleString("ro-RO", { timeZone: "Europe/Bucharest", year: "numeric" })}{" "}
+          {kindergarten.name}
         </p>
       </div>
     </footer>

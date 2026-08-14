@@ -3,7 +3,7 @@
 import { upload } from "@vercel/blob/client";
 import { useMemo, useState, type FormEvent } from "react";
 import {
-  FUNCTION_SAFE_BYTES,
+  formatAnnouncementDate,
   isAllowedPdf,
   MAX_PDF_BYTES,
   MAX_PDF_MB,
@@ -17,14 +17,9 @@ type AdminPanelProps = {
   storageMode: "local" | "blob";
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ro-RO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+function isLocalHost() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
 }
 
 export function AdminPanel({
@@ -120,21 +115,18 @@ export function AdminPanel({
         }
       }
 
-      const hosted = typeof window !== "undefined" && window.location.hostname !== "localhost";
-      const useClientUpload = Boolean(
-        pdf && (storageMode === "blob" || (hosted && pdf.size > FUNCTION_SAFE_BYTES)),
-      );
+      const useLocalFormUpload = Boolean(pdf && storageMode === "local" && isLocalHost());
 
       let response: Response;
 
-      if (pdf && useClientUpload) {
+      if (pdf && !useLocalFormUpload) {
         const safeName = pdf.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const filename = safeName.toLowerCase().endsWith(".pdf") ? safeName : `${safeName}.pdf`;
         const blob = await upload(`${PDF_UPLOAD_PREFIX}${Date.now()}-${filename}`, pdf, {
           access: "public",
           handleUploadUrl: "/api/announcements/upload",
           contentType: "application/pdf",
-          multipart: pdf.size > FUNCTION_SAFE_BYTES,
+          multipart: true,
         });
 
         response = await fetch("/api/announcements", {
@@ -147,17 +139,17 @@ export function AdminPanel({
             pdfName: pdf.name,
           }),
         });
+      } else if (!pdf) {
+        response = await fetch("/api/announcements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, body }),
+        });
       } else {
-        if (pdf && pdf.size > FUNCTION_SAFE_BYTES && hosted) {
-          throw new Error(
-            "Fișierele peste 4 MB necesită Vercel Blob. Verifică BLOB_READ_WRITE_TOKEN pe hosting.",
-          );
-        }
-
         const form = new FormData();
         form.set("title", title);
         form.set("body", body);
-        if (pdf) form.set("pdf", pdf);
+        form.set("pdf", pdf);
 
         response = await fetch("/api/announcements", {
           method: "POST",
@@ -257,6 +249,8 @@ export function AdminPanel({
       </div>
 
       <form
+        action="#"
+        method="post"
         onSubmit={handleCreate}
         className="space-y-4 rounded-[2rem] bg-white p-6 shadow-[0_24px_50px_-30px_rgba(31,58,77,0.4)] sm:p-8"
       >
@@ -314,7 +308,7 @@ export function AdminPanel({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">
-                    {formatDate(item.createdAt)}
+                    {formatAnnouncementDate(item.createdAt, true)}
                   </p>
                   <h3 className="mt-1 font-display text-xl text-ink">{item.title}</h3>
                   {item.body ? (

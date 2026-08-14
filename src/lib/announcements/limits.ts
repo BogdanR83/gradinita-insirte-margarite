@@ -10,3 +10,13 @@ export function isAllowedPdf(file: { name: string; type: string }) {
   if (name.endsWith(".pdf")) return true;
   return type === "application/pdf" || type === "application/x-pdf";
 }
+
+export function formatAnnouncementDate(value: string, withTime = false) {
+  return new Intl.DateTimeFormat("ro-RO", {
+    timeZone: "Europe/Bucharest",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    ...(withTime ? { hour: "2-digit" as const, minute: "2-digit" as const } : {}),
+  }).format(new Date(value));
+}
