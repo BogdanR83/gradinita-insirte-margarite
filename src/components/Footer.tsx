@@ -10,18 +10,6 @@ export function Footer() {
           <p className="mt-2 max-w-md text-sm leading-relaxed text-white/70">
             {kindergarten.sector} · Director {kindergarten.director}
           </p>
-          <p className="mt-3 text-sm text-white/55">
-            Date preluate din rețeaua oficială{" "}
-            <a
-              href={kindergarten.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-sun"
-            >
-              DGAUIS
-            </a>
-            .
-          </p>
         </div>
         <div className="text-sm text-white/45">
           <p>

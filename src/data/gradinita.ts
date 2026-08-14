@@ -16,10 +16,9 @@ export const kindergarten = {
   name: "Înșir'te Mărgărite",
   fullName: "Grădinița „Înșir'te Mărgărite”",
   sector: "Sector 4, București",
-  director: "Tomescu Mirela Danila",
+  director: "Tomescu Mirela Daniela",
   email: "gradinitainsirtemargarite@s4.ismb.ro",
   program: "Luni – Vineri: 7:00–18:00",
-  sourceUrl: "https://dgauis.ro/unitati/gradinita-insirte-margarite/",
   locations: [
     {
       id: "principala",
