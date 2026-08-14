@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminPanel } from "@/components/AdminPanel";
 import { listAnnouncements, storageMode } from "@/lib/announcements/store";
 import { isAuthenticated } from "@/lib/auth";
+import { getBuildLabel } from "@/lib/build-info";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function AdminPage() {
         initialItems={items}
         initiallyAuthenticated={authenticated}
         storageMode={storageMode()}
+        buildLabel={getBuildLabel()}
       />
     </main>
   );

@@ -15,6 +15,7 @@ type AdminPanelProps = {
   initialItems: Announcement[];
   initiallyAuthenticated: boolean;
   storageMode: "local" | "blob";
+  buildLabel: string;
 };
 
 function isLocalHost() {
@@ -26,6 +27,7 @@ export function AdminPanel({
   initialItems,
   initiallyAuthenticated,
   storageMode,
+  buildLabel,
 }: AdminPanelProps) {
   const [authenticated, setAuthenticated] = useState(initiallyAuthenticated);
   const [items, setItems] = useState(initialItems);
@@ -227,6 +229,7 @@ export function AdminPanel({
             Intră în admin
           </button>
         </form>
+        <p className="mt-6 text-center text-xs text-ink/40">Versiune {buildLabel}</p>
       </div>
     );
   }
@@ -338,6 +341,7 @@ export function AdminPanel({
           ))
         )}
       </section>
+      <p className="text-center text-xs text-ink/40">Versiune {buildLabel}</p>
     </div>
   );
 }
