@@ -22,9 +22,10 @@ export async function POST(request: Request) {
         }
 
         return {
-          allowedContentTypes: ["application/pdf"],
+          allowedContentTypes: ["application/pdf", "application/x-pdf", "application/octet-stream"],
           maximumSizeInBytes: MAX_PDF_BYTES,
           addRandomSuffix: true,
+          validUntil: Date.now() + 60 * 60 * 1000,
         };
       },
     });

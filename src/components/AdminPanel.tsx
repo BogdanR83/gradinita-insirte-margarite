@@ -2,7 +2,13 @@
 
 import { upload } from "@vercel/blob/client";
 import { useMemo, useState, type FormEvent } from "react";
-import { MAX_PDF_BYTES, MAX_PDF_MB, PDF_UPLOAD_PREFIX } from "@/lib/announcements/limits";
+import {
+  FUNCTION_SAFE_BYTES,
+  isAllowedPdf,
+  MAX_PDF_BYTES,
+  MAX_PDF_MB,
+  PDF_UPLOAD_PREFIX,
+} from "@/lib/announcements/limits";
 import type { Announcement } from "@/lib/announcements/types";
 
 type AdminPanelProps = {
@@ -84,6 +90,20 @@ export function AdminPanel({
     setItems(data.items);
   }
 
+  async function readApiError(response: Response) {
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text) as { error?: string };
+      if (data.error) return data.error;
+    } catch {
+      // Non-JSON body, e.g. Vercel 413 HTML/text.
+    }
+    if (response.status === 413 || text.includes("FUNCTION_PAYLOAD_TOO_LARGE")) {
+      return "Fișierul e prea mare pentru server. PDF-ul trebuie urcat direct în stocare.";
+    }
+    return "Nu am putut publica anunțul.";
+  }
+
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -92,7 +112,7 @@ export function AdminPanel({
 
     try {
       if (pdf) {
-        if (pdf.type && pdf.type !== "application/pdf") {
+        if (!isAllowedPdf(pdf)) {
           throw new Error("Doar fișiere PDF sunt acceptate.");
         }
         if (pdf.size > MAX_PDF_BYTES) {
@@ -100,15 +120,21 @@ export function AdminPanel({
         }
       }
 
+      const hosted = typeof window !== "undefined" && window.location.hostname !== "localhost";
+      const useClientUpload = Boolean(
+        pdf && (storageMode === "blob" || (hosted && pdf.size > FUNCTION_SAFE_BYTES)),
+      );
+
       let response: Response;
 
-      if (pdf && storageMode === "blob") {
+      if (pdf && useClientUpload) {
         const safeName = pdf.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const filename = safeName.toLowerCase().endsWith(".pdf") ? safeName : `${safeName}.pdf`;
         const blob = await upload(`${PDF_UPLOAD_PREFIX}${Date.now()}-${filename}`, pdf, {
           access: "public",
           handleUploadUrl: "/api/announcements/upload",
           contentType: "application/pdf",
+          multipart: pdf.size > FUNCTION_SAFE_BYTES,
         });
 
         response = await fetch("/api/announcements", {
@@ -122,6 +148,12 @@ export function AdminPanel({
           }),
         });
       } else {
+        if (pdf && pdf.size > FUNCTION_SAFE_BYTES && hosted) {
+          throw new Error(
+            "Fișierele peste 4 MB necesită Vercel Blob. Verifică BLOB_READ_WRITE_TOKEN pe hosting.",
+          );
+        }
+
         const form = new FormData();
         form.set("title", title);
         form.set("body", body);
@@ -134,8 +166,7 @@ export function AdminPanel({
       }
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(data?.error || "Nu am putut publica anunțul.");
+        throw new Error(await readApiError(response));
       }
 
       setTitle("");
@@ -145,7 +176,12 @@ export function AdminPanel({
       setMessage("Anunț publicat.");
       await refreshItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nu am putut publica anunțul.");
+      const message = err instanceof Error ? err.message : "Nu am putut publica anunțul.";
+      if (message.toLowerCase().includes("failed to retrieve the client token")) {
+        setError("Nu am putut pregăti încărcarea PDF-ului. Reautentifică-te și încearcă din nou.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -261,7 +297,7 @@ export function AdminPanel({
           disabled={busy}
           className="rounded-full bg-sky-deep px-6 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60"
         >
-          Publică anunțul
+          {busy ? "Se încarcă..." : "Publică anunțul"}
         </button>
       </form>
 

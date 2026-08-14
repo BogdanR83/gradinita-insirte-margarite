@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { MAX_PDF_BYTES, MAX_PDF_MB } from "@/lib/announcements/limits";
+import { isAllowedPdf, MAX_PDF_BYTES, MAX_PDF_MB } from "@/lib/announcements/limits";
 import { createAnnouncement, listAnnouncements, storageMode } from "@/lib/announcements/store";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       | undefined;
 
     if (file instanceof File && file.size > 0) {
-      if (file.type && file.type !== "application/pdf") {
+      if (!isAllowedPdf(file)) {
         return NextResponse.json(
           { error: "Doar fișiere PDF sunt acceptate." },
           { status: 400 },
