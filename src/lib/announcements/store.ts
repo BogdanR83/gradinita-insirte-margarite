@@ -96,18 +96,29 @@ export async function createAnnouncement(
 
   const title = input.title.trim();
   const body = input.body?.trim();
+  const uploadedPdfUrl = input.pdfUrl?.trim();
+  const uploadedPdfName = input.pdfName?.trim();
 
   if (!title) {
     throw new Error("Titlul este obligatoriu.");
   }
-  if (!body && !pdf) {
+  if (!body && !pdf && !uploadedPdfUrl) {
     throw new Error("Adaugă un text sau un PDF.");
   }
 
   let pdfUrl: string | undefined;
   let pdfName: string | undefined;
 
-  if (pdf) {
+  if (uploadedPdfUrl) {
+    if (!useBlob()) {
+      throw new Error("Încărcarea directă este disponibilă doar cu Vercel Blob.");
+    }
+    if (!isVercelBlobUrl(uploadedPdfUrl)) {
+      throw new Error("URL-ul PDF-ului nu este valid.");
+    }
+    pdfUrl = uploadedPdfUrl;
+    pdfName = uploadedPdfName || "anunt.pdf";
+  } else if (pdf) {
     const safeName = pdf.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
     if (useBlob()) {
       const blob = await put(`announcements/files/${Date.now()}-${safeName}`, pdf.buffer, {
@@ -173,4 +184,17 @@ export async function deleteAnnouncement(id: string) {
 
 export function storageMode() {
   return useBlob() ? "blob" : "local";
+}
+
+export function isVercelBlobUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "blob.vercel-storage.com" ||
+        url.hostname.endsWith(".blob.vercel-storage.com"))
+    );
+  } catch {
+    return false;
+  }
 }

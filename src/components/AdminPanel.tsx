@@ -1,6 +1,8 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { useMemo, useState, type FormEvent } from "react";
+import { MAX_PDF_BYTES, MAX_PDF_MB, PDF_UPLOAD_PREFIX } from "@/lib/announcements/limits";
 import type { Announcement } from "@/lib/announcements/types";
 
 type AdminPanelProps = {
@@ -30,6 +32,7 @@ export function AdminPanel({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [pdf, setPdf] = useState<File | null>(null);
+  const [pdfInputKey, setPdfInputKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,29 +90,65 @@ export function AdminPanel({
     setError(null);
     setMessage(null);
 
-    const form = new FormData();
-    form.set("title", title);
-    form.set("body", body);
-    if (pdf) form.set("pdf", pdf);
+    try {
+      if (pdf) {
+        if (pdf.type && pdf.type !== "application/pdf") {
+          throw new Error("Doar fișiere PDF sunt acceptate.");
+        }
+        if (pdf.size > MAX_PDF_BYTES) {
+          throw new Error(`PDF-ul trebuie să aibă maximum ${MAX_PDF_MB} MB.`);
+        }
+      }
 
-    const response = await fetch("/api/announcements", {
-      method: "POST",
-      body: form,
-    });
+      let response: Response;
 
-    setBusy(false);
+      if (pdf && storageMode === "blob") {
+        const safeName = pdf.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const filename = safeName.toLowerCase().endsWith(".pdf") ? safeName : `${safeName}.pdf`;
+        const blob = await upload(`${PDF_UPLOAD_PREFIX}${Date.now()}-${filename}`, pdf, {
+          access: "public",
+          handleUploadUrl: "/api/announcements/upload",
+          contentType: "application/pdf",
+        });
 
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error || "Nu am putut publica anunțul.");
-      return;
+        response = await fetch("/api/announcements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            body,
+            pdfUrl: blob.url,
+            pdfName: pdf.name,
+          }),
+        });
+      } else {
+        const form = new FormData();
+        form.set("title", title);
+        form.set("body", body);
+        if (pdf) form.set("pdf", pdf);
+
+        response = await fetch("/api/announcements", {
+          method: "POST",
+          body: form,
+        });
+      }
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || "Nu am putut publica anunțul.");
+      }
+
+      setTitle("");
+      setBody("");
+      setPdf(null);
+      setPdfInputKey((key) => key + 1);
+      setMessage("Anunț publicat.");
+      await refreshItems();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nu am putut publica anunțul.");
+    } finally {
+      setBusy(false);
     }
-
-    setTitle("");
-    setBody("");
-    setPdf(null);
-    setMessage("Anunț publicat.");
-    await refreshItems();
   }
 
   async function handleDelete(id: string) {
@@ -206,10 +245,11 @@ export function AdminPanel({
           />
         </label>
         <label className="block text-sm font-bold text-ink">
-          PDF (opțional)
+          PDF (opțional, maximum {MAX_PDF_MB} MB)
           <input
             type="file"
             accept="application/pdf,.pdf"
+            key={pdfInputKey}
             onChange={(event) => setPdf(event.target.files?.[0] || null)}
             className="mt-2 block w-full text-sm text-ink/80 file:mr-4 file:rounded-full file:border-0 file:bg-mist file:px-4 file:py-2 file:font-bold file:text-ink"
           />

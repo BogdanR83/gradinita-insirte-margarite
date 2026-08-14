@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MAX_PDF_BYTES, MAX_PDF_MB } from "@/lib/announcements/limits";
 import { createAnnouncement, listAnnouncements, storageMode } from "@/lib/announcements/store";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -13,6 +14,24 @@ export async function POST(request: Request) {
   }
 
   try {
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const data = (await request.json()) as {
+        title?: string;
+        body?: string;
+        pdfUrl?: string;
+        pdfName?: string;
+      };
+      const announcement = await createAnnouncement({
+        title: String(data.title || ""),
+        body: String(data.body || ""),
+        pdfUrl: data.pdfUrl,
+        pdfName: data.pdfName,
+      });
+      return NextResponse.json({ item: announcement }, { status: 201 });
+    }
+
     const form = await request.formData();
     const title = String(form.get("title") || "");
     const body = String(form.get("body") || "");
@@ -33,9 +52,9 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      if (file.size > 8 * 1024 * 1024) {
+      if (file.size > MAX_PDF_BYTES) {
         return NextResponse.json(
-          { error: "PDF-ul trebuie să aibă maximum 8 MB." },
+          { error: `PDF-ul trebuie să aibă maximum ${MAX_PDF_MB} MB.` },
           { status: 400 },
         );
       }
