@@ -114,9 +114,25 @@ async function readLocalRaw(): Promise<StoredAnnouncement[]> {
   }
 }
 
+function toStoredAnnouncement(item: Announcement): StoredAnnouncement {
+  const firstFile = item.files[0];
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    files: item.files,
+    // Keep legacy fields so older deploys still show at least one PDF.
+    pdfUrl: firstFile?.url,
+    pdfName: firstFile?.name,
+    category: item.category,
+    createdAt: item.createdAt,
+  };
+}
+
 async function writeLocal(items: Announcement[]) {
   await ensureLocalWritable();
-  await writeFile(DATA_FILE, `${JSON.stringify(items, null, 2)}\n`, "utf8");
+  const stored = items.map(toStoredAnnouncement);
+  await writeFile(DATA_FILE, `${JSON.stringify(stored, null, 2)}\n`, "utf8");
 }
 
 async function readBlobMetaRaw(): Promise<StoredAnnouncement[]> {
@@ -135,7 +151,8 @@ async function readBlobMetaRaw(): Promise<StoredAnnouncement[]> {
 }
 
 async function writeBlobMeta(items: Announcement[]) {
-  await put(BLOB_META_PATHNAME, JSON.stringify(items, null, 2), {
+  const stored = items.map(toStoredAnnouncement);
+  await put(BLOB_META_PATHNAME, JSON.stringify(stored, null, 2), {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: true,
