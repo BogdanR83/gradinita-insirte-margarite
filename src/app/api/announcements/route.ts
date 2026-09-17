@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { isAllowedPdf, MAX_PDF_BYTES, MAX_PDF_MB } from "@/lib/announcements/limits";
-import { createAnnouncement, listAnnouncements, storageMode } from "@/lib/announcements/store";
+import { parseAnnouncementCategory } from "@/lib/announcements/categories";
+import { isAllowedPdf, MAX_FILES, MAX_PDF_BYTES, MAX_PDF_MB } from "@/lib/announcements/limits";
+import {
+  createAnnouncement,
+  listAnnouncements,
+  parseAnnouncementFiles,
+  storageMode,
+} from "@/lib/announcements/store";
 import { isAuthenticated } from "@/lib/auth";
 
 export async function GET() {
@@ -20,14 +26,29 @@ export async function POST(request: Request) {
       const data = (await request.json()) as {
         title?: string;
         body?: string;
+        files?: unknown;
         pdfUrl?: string;
         pdfName?: string;
+        category?: string;
       };
+      const files = parseAnnouncementFiles(data.files);
+      if (data.pdfUrl?.trim()) {
+        files.push({
+          url: data.pdfUrl.trim(),
+          name: data.pdfName?.trim() || "fisier.pdf",
+        });
+      }
+      if (files.length > MAX_FILES) {
+        return NextResponse.json(
+          { error: `Poți încărca maximum ${MAX_FILES} fișiere.` },
+          { status: 400 },
+        );
+      }
       const announcement = await createAnnouncement({
         title: String(data.title || ""),
         body: String(data.body || ""),
-        pdfUrl: data.pdfUrl,
-        pdfName: data.pdfName,
+        files,
+        category: parseAnnouncementCategory(data.category),
       });
       return NextResponse.json({ item: announcement }, { status: 201 });
     }
@@ -35,17 +56,25 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const title = String(form.get("title") || "");
     const body = String(form.get("body") || "");
-    const file = form.get("pdf");
+    const category = parseAnnouncementCategory(form.get("category"));
+    const uploaded = [...form.getAll("pdf"), ...form.getAll("pdfs")].filter(
+      (file): file is File => file instanceof File && file.size > 0,
+    );
 
-    let pdf:
-      | {
-          buffer: Buffer;
-          filename: string;
-          contentType: string;
-        }
-      | undefined;
+    if (uploaded.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Poți încărca maximum ${MAX_FILES} fișiere.` },
+        { status: 400 },
+      );
+    }
 
-    if (file instanceof File && file.size > 0) {
+    const pdfs: Array<{
+      buffer: Buffer;
+      filename: string;
+      contentType: string;
+    }> = [];
+
+    for (const file of uploaded) {
       if (!isAllowedPdf(file)) {
         return NextResponse.json(
           { error: "Doar fișiere PDF sunt acceptate." },
@@ -54,20 +83,19 @@ export async function POST(request: Request) {
       }
       if (file.size > MAX_PDF_BYTES) {
         return NextResponse.json(
-          { error: `PDF-ul trebuie să aibă maximum ${MAX_PDF_MB} MB.` },
+          { error: `Fiecare PDF trebuie să aibă maximum ${MAX_PDF_MB} MB.` },
           { status: 400 },
         );
       }
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      pdf = {
-        buffer,
+      pdfs.push({
+        buffer: Buffer.from(await file.arrayBuffer()),
         filename: file.name || "anunt.pdf",
         contentType: file.type || "application/pdf",
-      };
+      });
     }
 
-    const announcement = await createAnnouncement({ title, body }, pdf);
+    const announcement = await createAnnouncement({ title, body, category }, pdfs);
     return NextResponse.json({ item: announcement }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Nu am putut salva anunțul.";

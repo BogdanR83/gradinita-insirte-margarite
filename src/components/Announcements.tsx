@@ -1,16 +1,33 @@
 import Link from "next/link";
-import type { Announcement } from "@/lib/announcements/types";
+import {
+  ANNOUNCEMENT_CATEGORIES,
+  getAnnouncementCategory,
+  type AnnouncementCategory,
+} from "@/lib/announcements/categories";
+import type { Announcement, AnnouncementFile } from "@/lib/announcements/types";
 import { formatAnnouncementDate } from "@/lib/announcements/limits";
+
+const CATEGORY_BUTTON_STYLES: Record<AnnouncementCategory, string> = {
+  "proiecte-si-programe": "bg-sky-deep text-white hover:brightness-110",
+  parinti: "bg-leaf text-white hover:bg-leaf-deep",
+  "cadre-didactice": "bg-sun text-ink hover:bg-sun-deep",
+  diverse: "bg-coral text-white hover:brightness-105",
+};
 
 type AnnouncementCardProps = {
   item: Announcement;
+  showCategory?: boolean;
 };
 
-export function AnnouncementCard({ item }: AnnouncementCardProps) {
+export function AnnouncementCard({ item, showCategory = false }: AnnouncementCardProps) {
+  const category = getAnnouncementCategory(item.category);
+  const files = item.files ?? [];
+
   return (
     <article className="rounded-[1.75rem] border border-ink/8 bg-white/90 p-6 shadow-[0_18px_40px_-30px_rgba(31,58,77,0.45)]">
       <p className="text-sm font-semibold uppercase tracking-wide text-sky-deep">
         {formatAnnouncementDate(item.createdAt)}
+        {showCategory && category ? ` · ${category.label}` : ""}
       </p>
       <h3 className="mt-2 font-display text-2xl text-ink">{item.title}</h3>
       {item.body ? (
@@ -18,17 +35,86 @@ export function AnnouncementCard({ item }: AnnouncementCardProps) {
           {item.body}
         </p>
       ) : null}
-      {item.pdfUrl ? (
-        <a
-          href={item.pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-bold text-white transition hover:brightness-105"
-        >
-          Deschide PDF{item.pdfName ? `: ${item.pdfName}` : ""}
-        </a>
+      {files.length > 0 ? (
+        <div className="mt-5 flex flex-col items-start gap-2">
+          {files.map((file) => (
+            <FileLink
+              key={`${file.url}-${file.name}`}
+              file={file}
+              category={item.category}
+            />
+          ))}
+        </div>
       ) : null}
     </article>
+  );
+}
+
+function FileLink({
+  file,
+  category,
+}: {
+  file: AnnouncementFile;
+  category: AnnouncementCategory;
+}) {
+  return (
+    <a
+      href={file.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${CATEGORY_BUTTON_STYLES[category]}`}
+    >
+      Deschide PDF: {file.name}
+    </a>
+  );
+}
+
+type AnnouncementCategoryButtonsProps = {
+  currentSlug?: AnnouncementCategory;
+  compact?: boolean;
+};
+
+export function AnnouncementCategoryButtons({
+  currentSlug,
+  compact = false,
+}: AnnouncementCategoryButtonsProps) {
+  return (
+    <div className={compact ? "mt-8 flex flex-wrap gap-3" : "mt-10 grid gap-4 sm:grid-cols-2"}>
+      {ANNOUNCEMENT_CATEGORIES.map((category) => {
+        const isCurrent = category.slug === currentSlug;
+
+        if (compact) {
+          return (
+            <Link
+              key={category.slug}
+              href={`/anunturi/${category.slug}`}
+              aria-current={isCurrent ? "page" : undefined}
+              className={`rounded-full px-4 py-2 text-sm font-bold transition ${CATEGORY_BUTTON_STYLES[category.slug]} ${
+                isCurrent ? "ring-2 ring-ink/20 ring-offset-2 ring-offset-transparent" : ""
+              }`}
+            >
+              {category.label}
+            </Link>
+          );
+        }
+
+        return (
+          <Link
+            key={category.slug}
+            href={`/anunturi/${category.slug}`}
+            aria-current={isCurrent ? "page" : undefined}
+            className={`rounded-[1.75rem] px-6 py-6 text-left shadow-[0_18px_40px_-28px_rgba(31,58,77,0.45)] transition ${CATEGORY_BUTTON_STYLES[category.slug]} ${
+              isCurrent ? "ring-4 ring-white/80 ring-offset-2 ring-offset-transparent" : ""
+            }`}
+          >
+            <span className="block font-display text-2xl leading-tight">{category.label}</span>
+            <span className="mt-2 block text-sm font-semibold opacity-90">
+              {category.description}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
@@ -69,7 +155,7 @@ export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
         ) : (
           <div className="mt-10 grid gap-5 lg:grid-cols-3">
             {latest.map((item) => (
-              <AnnouncementCard key={item.id} item={item} />
+              <AnnouncementCard key={item.id} item={item} showCategory />
             ))}
           </div>
         )}

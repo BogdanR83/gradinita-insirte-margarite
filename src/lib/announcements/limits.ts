@@ -1,5 +1,6 @@
 export const MAX_PDF_MB = 15;
 export const MAX_PDF_BYTES = MAX_PDF_MB * 1024 * 1024;
+export const MAX_FILES = 10;
 /** Stay under Vercel's 4.5 MB function body limit, including multipart overhead. */
 export const FUNCTION_SAFE_BYTES = 4 * 1024 * 1024;
 export const PDF_UPLOAD_PREFIX = "announcements/files/";
